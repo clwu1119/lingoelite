@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LingoElite Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg: #1a1614; --card: #2d2724; --primary: #c4a484; --text-main: #e8e2de; --text-sub: #a8a09a; --border: #3d3531; }
+        body { background: var(--bg); color: var(--text-main); font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .logo-text { font-family: 'Playfair Display', serif; color: var(--primary); font-size: 1.6rem; letter-spacing: -1px; }
+        .morandi-card { background: var(--card); border-radius: 24px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        
+        /* 選單按鈕 - 修正變色邏輯 */
+        .tab-btn { background: #3d3531; color: #a8a09a; padding: 12px 8px; border-radius: 14px; font-size: 12px; font-weight: bold; flex: 1; text-align: center; cursor: pointer; transition: 0.2s; border: 1px solid transparent; }
+        .tab-btn.active { background: var(--primary) !important; color: #1a1614 !important; }
+        
+        .input-field { background: #251f1d !important; border: 1px solid var(--border) !important; border-radius: 18px !important; padding: 16px 20px !important; width: 100% !important; color: var(--text-main) !important; outline: none; font-size: 16px !important; }
+        .input-field:focus { border-color: var(--primary) !important; }
+        .chip-filter-active { background: var(--primary) !important; color: #1a1614 !important; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .modal-sheet { animation: slideUp 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); background: var(--card); border-top: 1px solid var(--border); border-radius: 36px 36px 0 0; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .loading-ai { animation: breathe 1.5s infinite; pointer-events: none; opacity: 0.6; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.98); opacity: 0.5; } }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <header class="sticky top-0 z-40 px-6 pt-8 pb-4 bg-[#1a1614]/90 backdrop-blur-md">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="logo-text italic font-bold text-2xl">LingoElite.</h1>
+            <div class="flex gap-5 text-[#5a524e]">
+                <i class="fas fa-key hover:text-[#c4a484]" onclick="setApiKey()" title="設定 API Key"></i>
+                <i class="fas fa-file-export" onclick="exportData()"></i>
+                <i class="fas fa-file-import" onclick="document.getElementById('importFile').click()"></i>
+                <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+            </div>
+        </div>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1" id="filterBar">
+            <button onclick="setFilter('全部')" class="filter-btn chip-filter-active whitespace-nowrap px-6 py-2 rounded-full text-xs font-bold transition-all">全部</button>
+            <button onclick="setFilter('食')" class="filter-btn bg-[#2d2724] border border-[#3d3531] whitespace-nowrap px-6 py-2 rounded-full text-xs font-bold text-[#a8a09a]">食</button>
+            <button onclick="setFilter('衣')" class="filter-btn bg-[#2d2724] border border-[#3d3531] whitespace-nowrap px-6 py-2 rounded-full text-xs font-bold text-[#a8a09a]">衣</button>
+            <button onclick="setFilter('住')" class="filter-btn bg-[#2d2724] border border-[#3d3531] whitespace-nowrap px-6 py-2 rounded-full text-xs font-bold text-[#a8a09a]">住</button>
+            <button onclick="setFilter('行')" class="filter-btn bg-[#2d2724] border border-[#3d3531] whitespace-nowrap px-6 py-2 rounded-full text-xs font-bold text-[#a8a09a]">行</button>
+            <button onclick="setFilter('工作')" class="filter-btn bg-[#2d2724] border border-[#3d3531] whitespace-nowrap px-6 py-2 rounded-full text-xs font-bold text-[#a8a09a]">工作</button>
+        </div>
+    </header>
+
+    <main class="px-6 pb-40 space-y-4" id="wordList"></main>
+
+    <button onclick="openModal()" class="fixed bottom-10 right-8 w-16 h-16 bg-[#c4a484] rounded-2xl shadow-2xl flex items-center justify-center text-[#1a1614] text-2xl z-50 active:scale-90 transition-all">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <div id="modal" class="fixed inset-0 z-[60] hidden flex items-end justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="modal-sheet w-full p-8 relative max-h-[95vh] overflow-y-auto no-scrollbar">
+            <div class="w-12 h-1 bg-[#3d3531] rounded-full mx-auto mb-8"></div>
+            <div class="space-y-6">
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <label class="text-[10px] font-bold text-[#a8a09a] uppercase ml-1 tracking-widest">Vocab</label>
+                        <button id="aiBtn" onclick="askGemini()" class="text-[11px] bg-[#c4a484] text-[#1a1614] px-4 py-1.5 rounded-full font-bold active:scale-95">
+                            <i class="fas fa-wand-magic-sparkles mr-1"></i>Gemini AI
+                        </button>
+                    </div>
+                    <input id="word" type="text" placeholder="輸入單字..." class="input-field">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="note" type="text" placeholder="中文翻譯" class="input-field">
+                    <input id="tip" type="text" placeholder="發音小 Tip" class="input-field">
+                </div>
+
+                <textarea id="sentence" placeholder="例句應用..." class="input-field h-24"></textarea>
+                
+                <div>
+                    <label class="text-[10px] font-bold text-[#a8a09a] uppercase ml-1 tracking-widest mb-2 block text-left">Language</label>
+                    <div class="flex gap-2">
+                        <div onclick="selectTab('lang', 'en')" id="lang-en" class="tab-btn lang-tab active">English</div>
+                        <div onclick="selectTab('lang', 'vi')" id="lang-vi" class="tab-btn lang-tab">VN</div>
+                        <div onclick="selectTab('lang', 'ja')" id="lang-ja" class="tab-btn lang-tab">JP</div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-[#a8a09a] uppercase ml-1 tracking-widest mb-2 block text-left">Category</label>
+                    <div class="grid grid-cols-5 gap-2">
+                        <div onclick="selectTab('cat', '食')" id="cat-食" class="tab-btn cat-tab active">食</div>
+                        <div onclick="selectTab('cat', '衣')" id="cat-衣" class="tab-btn cat-tab">衣</div>
+                        <div onclick="selectTab('cat', '住')" id="cat-住" class="tab-btn cat-tab">住</div>
+                        <div onclick="selectTab('cat', '行')" id="cat-行" class="tab-btn cat-tab">行</div>
+                        <div onclick="selectTab('cat', '工作')" id="cat-工作" class="tab-btn cat-tab">工</div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button onclick="closeModal()" class="flex-1 py-4 rounded-xl text-[#a8a09a] font-bold bg-[#3d3531]">取消</button>
+                    <button onclick="saveWord()" class="flex-1 py-4 rounded-xl bg-[#c4a484] text-[#1a1614] font-bold shadow-lg">儲存</button>
+                </div>
+                <input type="hidden" id="editIndex">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 設定 API Key (儲存於本地)
+        function setApiKey() {
+            const key = prompt("請貼入你的 Gemini API Key:", localStorage.getItem('user_gemini_key') || "");
+            if (key !== null) {
+                localStorage.setItem('user_gemini_key', key);
+                alert("API Key 已儲存！");
+            }
+        }
+
+        let db = JSON.parse(localStorage.getItem('lingo_final_v15')) || [{word: "Exhausted", lang: "en", note: "精疲力竭", tip: "一格-造-斯特-底得", category: "工作", sentence: "I'm totally exhausted after work.", pinned: true}];
+        let currentFilter = '全部', tempLang = 'en', tempCat = '食';
+
+        // 變色切換函式
+        function selectTab(type, val) {
+            const selector = (type === 'lang') ? '.lang-tab' : '.cat-tab';
+            document.querySelectorAll(selector).forEach(btn => btn.classList.remove('active'));
+            
+            const targetId = (type === 'lang') ? `lang-${val}` : `cat-${val}`;
+            const targetBtn = document.getElementById(targetId);
+            if(targetBtn) targetBtn.classList.add('active');
+
+            if (type === 'lang') tempLang = val; else tempCat = val;
+        }
+
+        // AI 請求函式
+        async function askGemini() {
+            const userKey = localStorage.getItem('user_gemini_key');
+            if (!userKey) return alert("請點擊左上方鑰匙圖標設定 API Key");
+            
+            const wordInput = document.getElementById('word').value.trim();
+            if (!wordInput) return alert("請先輸入單字");
+            
+            const aiBtn = document.getElementById('aiBtn');
+            aiBtn.classList.add('loading-ai');
+            aiBtn.innerText = "...";
+
+            try {
+                // 強制使用 v1beta 與 flash 1.5
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userKey}`;
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: `你是一位老師。請分析${tempLang}單字 "${wordInput}"。僅回傳一個 JSON：{"note": "翻譯", "tip": "諧音tip", "sentence": "例句"}。不要其他文字。` }] }] })
+                });
+                
+                const data = await resp.json();
+                if (data.candidates && data.candidates[0].content) {
+                    const resultText = data.candidates[0].content.parts[0].text;
+                    const cleanJson = resultText.replace(/```json|```/g, '').trim();
+                    const result = JSON.parse(cleanJson);
+                    document.getElementById('note').value = result.note || "";
+                    document.getElementById('tip').value = result.tip || "";
+                    document.getElementById('sentence').value = result.sentence || "";
+                } else { throw new Error(data.error?.message || "格式異常"); }
+            } catch (e) { 
+                console.error(e);
+                alert("API 請求失敗，請檢查 Key 是否正確或網路環境。"); 
+            }
+            finally { aiBtn.classList.remove('loading-ai'); aiBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-1"></i>Gemini AI'; }
+        }
+
+        function render() {
+            const list = document.getElementById('wordList'); list.innerHTML = '';
+            let filtered = db.filter(i => currentFilter === '全部' || i.category === currentFilter);
+            filtered.sort((a, b) => (b.pinned || 0) - (a.pinned || 0));
+            filtered.forEach((item) => {
+                const idx = db.indexOf(item);
+                const card = document.createElement('div');
+                card.className = `morandi-card p-6 relative mb-4 ${item.pinned ? 'border-l-4 border-[#c4a484]' : 'border-transparent'}`;
+                card.innerHTML = `<div class="flex justify-between items-start mb-4"><div class="flex gap-2"><span class="text-[9px] px-2.5 py-1 rounded bg-[#3d3531] text-[#a8a09a] font-bold uppercase">${item.lang}</span><span class="text-[9px] px-2.5 py-1 rounded bg-[#c4a48422] text-[#c4a484] font-bold">${item.category}</span></div><div class="flex gap-4 text-[#3d3531]"><i class="fas fa-star ${item.pinned ? 'text-[#c4a484]' : ''}" onclick="togglePin(${idx})"></i><i class="fas fa-edit" onclick="openModal(${idx})"></i><i class="fas fa-trash-alt" onclick="deleteWord(${idx})"></i></div></div><div class="space-y-3"><div class="flex items-center gap-4"><h3 class="text-2xl font-bold text-[#e8e2de]">${item.word}</h3><i class="fas fa-volume-up text-[#c4a484]" onclick="speak('${item.word}', '${item.lang}')"></i></div>${item.tip ? `<div class="text-[11px] text-[#c4a484] bg-[#c4a48411] px-3 py-1.5 rounded-lg inline-flex items-center gap-2"><i class="fas fa-lightbulb text-[10px]"></i>${item.tip}</div>` : ''}<p class="text-[16px] text-[#a8a09a]">${item.note}</p>${item.sentence ? `<div class="mt-2 flex justify-between items-center bg-[#251f1d] p-4 rounded-2xl border border-[#3d3531] text-xs italic text-[#7a726e]"><span>${item.sentence}</span><i class="fas fa-circle-play text-[#c4a484] text-xl" onclick="speak(\`${item.sentence}\`, '${item.lang}')"></i></div>` : ''}</div>`;
+                list.appendChild(card);
+            });
+            localStorage.setItem('lingo_final_v15', JSON.stringify(db));
+        }
+
+        function openModal(idx = -1) {
+            document.getElementById('modal').classList.remove('hidden');
+            if (idx > -1) {
+                const i = db[idx]; document.getElementById('word').value = i.word; document.getElementById('note').value = i.note;
+                document.getElementById('tip').value = i.tip || ""; document.getElementById('sentence').value = i.sentence || "";
+                document.getElementById('editIndex').value = idx; selectTab('lang', i.lang); selectTab('cat', i.category);
+            } else {
+                ['word', 'note', 'tip', 'sentence'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('editIndex').value = -1; selectTab('lang', 'en'); selectTab('cat', '食');
+            }
+        }
+
+        function saveWord() {
+            const idx = parseInt(document.getElementById('editIndex').value);
+            const data = { word: document.getElementById('word').value.trim(), lang: tempLang, note: document.getElementById('note').value.trim(), tip: document.getElementById('tip').value.trim(), category: tempCat, sentence: document.getElementById('sentence').value.trim(), pinned: idx > -1 ? db[idx].pinned : false };
+            if (!data.word || !data.note) return alert('請填寫完整');
+            idx > -1 ? db[idx] = data : db.push(data); closeModal(); render();
+        }
+
+        function setFilter(cat) {
+            currentFilter = cat;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.toggle('chip-filter-active', btn.innerText === cat || (cat === '全部' && btn.innerText === '全部')));
+            render();
+        }
+        function togglePin(idx) { db[idx].pinned = !db[idx].pinned; render(); }
+        function deleteWord(idx) { if(confirm('刪除？')) { db.splice(idx, 1); render(); } }
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        function speak(t, l) {
+            const sl = l === 'en' ? 'en-US' : l === 'ja' ? 'ja-JP' : 'vi-VN';
+            const u = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(t)}&tl=${sl}&client=tw-ob`;
+            new Audio(u).play().catch(() => { const m = new SpeechSynthesisUtterance(t); m.lang = sl; window.speechSynthesis.speak(m); });
+        }
+        function exportData() {
+            const blob = new Blob([JSON.stringify(db, null, 2)], {type : 'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LingoBackup.json`; a.click();
+        }
+        function importData(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => { db = JSON.parse(ev.target.result); render(); };
+            reader.readAsText(e.target.files[0]);
+        }
+        render();
+    </script>
+</body>
+</html>
